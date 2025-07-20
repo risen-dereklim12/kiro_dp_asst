@@ -1,5 +1,8 @@
+from pathlib import Path
+import json
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchValue
+from traceback import print_exc
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -25,6 +28,13 @@ class QdrantStore:
             vectors_config=VectorParams(size=self.vector_size, distance=self.distance),
         )
         print(f"Collection '{self.collection_name}' created.")
+
+    def prepare(self, vector, documents):
+        points = []
+        for i, d in enumerate(documents):
+            point = PointStruct(id=i, vector=vector[i], payload=d)
+            points.append(point)
+        return points
 
     def upsert(self, points):
         """
@@ -59,14 +69,19 @@ class QdrantStore:
 if __name__ == "__main__":
     qdrant_client = QdrantStore()
     embedding = EmbeddingClass()
-    encoded = embedding.encode("What is PDPA")
-    # qdrant_client.create_collection()
-    # points = [
-    #     PointStruct(id=1, vector=[0.05, 0.61, 0.76, 0.74], payload={"city": "Berlin"}),
-    # ]
-    # operation_info = qdrant_client.upsert(points)
-    # print(operation_info)
-    search_result = qdrant_client.search(
-        encoded["embeddings"][0]
-        , limit=3)
-    print(search_result)
+    # encoded = embedding.encode("What is PDPA")
+    # # qdrant_client.create_collection()
+   
+    # search_result = qdrant_client.search(
+    #     encoded["embeddings"][0]
+    #     , limit=3)
+    # print(search_result[0])
+
+    file_path = Path.home() / "kiro_dp_asst" / "Documents" / "document1.json"
+    with file_path.open("r") as file:
+        data = file.read()
+    documents = json.loads(data)
+    vector = embedding.embed(documents)
+    vector_points = qdrant_client.prepare(vector, documents)
+    operation_info = qdrant_client.upsert(vector_points)
+    print(operation_info)
